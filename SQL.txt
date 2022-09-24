@@ -1,0 +1,29 @@
+CREATE TABLE colors (
+    id,
+    name
+)
+
+INSERT INTO colors (
+    blue
+)
+
+INSERT INTO colors (
+    green
+)
+
+INSERT INTO colors (
+    black
+)
+
+INSERT INTO colors (
+    pinkk
+)
+
+UPDATE colors
+SET name = pink
+WHERE id == 4
+
+
+
+SELECT id, name
+FROM colors
