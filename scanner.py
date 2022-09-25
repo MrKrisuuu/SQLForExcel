@@ -1,13 +1,16 @@
 import ply.lex as lex
 from decimal import Decimal
 
-literals = [",", "(", ")"]
+literals = [",", "(", ")", "=", "*"]
 
 reserved = {
     "CREATE": "CREATE",
     "TABLE": "TABLE",
     "INSERT": "INSERT",
     "INTO": "INTO",
+    "UPDATE": "UPDATE",
+    "SET": "SET",
+    "DELETE": "DELETE",
     "SELECT": "SELECT",
     "FROM": "FROM",
     "WHERE": "WHERE"

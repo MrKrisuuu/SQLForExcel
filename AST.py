@@ -21,9 +21,24 @@ class Create_Table(Node):
 
 
 class Insert_Into(Node):
-    def __init__(self, table, columns, lineno):
+    def __init__(self, table, variables, lineno):
         self.table = table
-        self.columns = columns
+        self.variables = variables
+        super().__init__(lineno)
+
+
+class Update(Node):
+    def __init__(self, table, sets, condition, lineno):
+        self.table = table
+        self.sets = sets
+        self.condition = condition
+        super().__init__(lineno)
+
+
+class Delete_From(Node):
+    def __init__(self, table, condition, lineno):
+        self.table = table
+        self.condition = condition
         super().__init__(lineno)
 
 
@@ -42,22 +57,24 @@ class Select_From_Where(Node):
         super().__init__(lineno)
 
 
-class Columns(Node):
+class Sets(Node):
     def __init__(self, left, right, lineno):
         self.left = left
         self.right = right
         super().__init__(lineno)
 
 
-class Column(Node):
-    def __init__(self, name, lineno):
-        self.name = name
+class Set(Node):
+    def __init__(self, column, variable, lineno):
+        self.column = column
+        self.variable = variable
         super().__init__(lineno)
 
 
-class Table(Node):
-    def __init__(self, name, lineno):
-        self.name = name
+class Columns(Node):
+    def __init__(self, left, right, lineno):
+        self.left = left
+        self.right = right
         super().__init__(lineno)
 
 
@@ -72,6 +89,13 @@ class Condition(Node):
 class ID(Node):
     def __init__(self, name, lineno):
         self.name = name
+        super().__init__(lineno)
+
+
+class Variables(Node):
+    def __init__(self, left, right, lineno):
+        self.left = left
+        self.right = right
         super().__init__(lineno)
 
 

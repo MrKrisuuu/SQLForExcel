@@ -29,7 +29,23 @@ class TreePrinter:
     def printTree(self, indent=0):
         print("| " * indent + "INSERT INTO")
         self.table.printTree(indent + 1)
-        self.columns.printTree(indent + 2)
+        self.variables.printTree(indent + 2)
+
+    @addToClass(AST.Update)
+    def printTree(self, indent=0):
+        print("| " * indent + "UPDATE")
+        self.table.printTree(indent + 1)
+        print("| " * indent + "SET")
+        self.sets.printTree(indent + 1)
+        print("| " * indent + "WHERE")
+        self.condition.printTree(indent + 1)
+
+    @addToClass(AST.Delete_From)
+    def printTree(self, indent=0):
+        print("| " * indent + "DELETE FROM")
+        self.table.printTree(indent + 1)
+        print("| " * indent + "WHERE")
+        self.condition.printTree(indent + 1)
 
     @addToClass(AST.Select_From)
     def printTree(self, indent=0):
@@ -47,18 +63,21 @@ class TreePrinter:
         print("| " * indent + "WHERE")
         self.condition.printTree(indent + 1)
 
-    @addToClass(AST.Columns)
+    @addToClass(AST.Sets)
     def printTree(self, indent=0):
         self.left.printTree(indent)
         self.right.printTree(indent)
 
-    @addToClass(AST.Column)
+    @addToClass(AST.Set)
     def printTree(self, indent=0):
-        print("| " * indent + self.name)
+        print("| " * indent + "=")
+        self.column.printTree(indent + 1)
+        self.variable.printTree(indent + 1)
 
-    @addToClass(AST.Table)
+    @addToClass(AST.Columns)
     def printTree(self, indent=0):
-        print("| " * indent + self.name)
+        self.left.printTree(indent)
+        self.right.printTree(indent)
 
     @addToClass(AST.Condition)
     def printTree(self, indent=0):
@@ -70,11 +89,16 @@ class TreePrinter:
     def printTree(self, indent=0):
         print("| " * indent + self.name)
 
+    @addToClass(AST.Variables)
+    def printTree(self, indent=0):
+        self.left.printTree(indent)
+        self.right.printTree(indent)
+
     @addToClass(AST.STRING)
     def printTree(self, indent=0):
         print("| " * indent + self.value)
 
     @addToClass(AST.NUMBER)
     def printTree(self, indent=0):
-        print("| " * indent + self.value)
+        print("| " * indent + str(self.value))
 

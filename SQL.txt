@@ -1,29 +1,35 @@
 CREATE TABLE colors (
     id,
-    name
+    name,
+    xd
 )
 
 INSERT INTO colors (
-    blue
+    "blue"
 )
 
 INSERT INTO colors (
-    green
+    "green"
 )
 
 INSERT INTO colors (
-    black
+    "black"
 )
 
 INSERT INTO colors (
-    pinkk
+    "pinkk"
+)
+
+INSERT INTO colors (
+    "brown"
 )
 
 UPDATE colors
-SET name = pink
+SET name = "pink"
 WHERE id == 4
 
+DELETE FROM colors
+WHERE name == "brown"
 
-
-SELECT id, name
+SELECT *
 FROM colors
