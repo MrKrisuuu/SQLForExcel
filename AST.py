@@ -27,6 +27,49 @@ class Insert_Into(Node):
         super().__init__(lineno)
 
 
+class Select_From(Node):
+    def __init__(self, columns, table, joining, whering, grouping, having, ordering, lineno):
+        self.columns = columns
+        self.table = table
+        self.joining = joining
+        self.whering = whering
+        self.grouping = grouping
+        self.having = having
+        self.ordering = ordering
+        super().__init__(lineno)
+
+
+class Join_On(Node):
+    def __init__(self, table, condition, lineno):
+        self.table = table
+        self.condition = condition
+        super().__init__(lineno)
+
+
+class Where(Node):
+    def __init__(self, condition, lineno):
+        self.condition = condition
+        super().__init__(lineno)
+
+
+class Group_By(Node):
+    def __init__(self, columns, lineno):
+        self.columns = columns
+        super().__init__(lineno)
+
+
+class Having(Node):
+    def __init__(self, condition, lineno):
+        self.condition = condition
+        super().__init__(lineno)
+
+
+class Order_By(Node):
+    def __init__(self, columns, lineno):
+        self.columns = columns
+        super().__init__(lineno)
+
+
 class Update(Node):
     def __init__(self, table, sets, condition, lineno):
         self.table = table
@@ -37,21 +80,6 @@ class Update(Node):
 
 class Delete_From(Node):
     def __init__(self, table, condition, lineno):
-        self.table = table
-        self.condition = condition
-        super().__init__(lineno)
-
-
-class Select_From(Node):
-    def __init__(self, columns, table, lineno):
-        self.columns = columns
-        self.table = table
-        super().__init__(lineno)
-
-
-class Select_From_Where(Node):
-    def __init__(self, columns, table, condition, lineno):
-        self.columns = columns
         self.table = table
         self.condition = condition
         super().__init__(lineno)
@@ -68,6 +96,13 @@ class Set(Node):
     def __init__(self, column, variable, lineno):
         self.column = column
         self.variable = variable
+        super().__init__(lineno)
+
+
+class Table(Node):
+    def __init__(self, full, short, lineno):
+        self.full = full
+        self.short = short
         super().__init__(lineno)
 
 
@@ -90,6 +125,11 @@ class ID(Node):
     def __init__(self, name, lineno):
         self.name = name
         super().__init__(lineno)
+
+
+class NONE(Node):
+    def __init__(self, ):
+        pass
 
 
 class Variables(Node):

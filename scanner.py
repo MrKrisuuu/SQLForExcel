@@ -4,22 +4,32 @@ from decimal import Decimal
 literals = [",", "(", ")", "=", "*"]
 
 reserved = {
+    # create
     "CREATE": "CREATE",
     "TABLE": "TABLE",
     "INSERT": "INSERT",
     "INTO": "INTO",
-    "UPDATE": "UPDATE",
-    "SET": "SET",
-    "DELETE": "DELETE",
+    # read
     "SELECT": "SELECT",
     "FROM": "FROM",
-    "WHERE": "WHERE"
+    "JOIN": "JOIN",
+    "ON": "ON",
+    "WHERE": "WHERE",
+    "GROUP": "GROUP",
+    "BY": "BY",
+    "HAVING": "HAVING",
+    "ORDER": "ORDER",
+    # update
+    "UPDATE": "UPDATE",
+    "SET": "SET",
+    # delete
+    "DELETE": "DELETE"
 }
 
 tokens = [
+    "ID",
     "EQUAL",
     "NOT_EQUAL",
-    "ID",
     "STRING",
     "NUMBER"
 ] + list(reserved.values())
@@ -32,7 +42,7 @@ t_NOT_EQUAL = "!="
 
 
 def t_ID(t):
-    r"[a-z]+|[A-Z]+"
+    r"[A-Z]+|([a-z]+)(\.[a-z]+)?"
     t.type = reserved.get(t.value, "ID")
     return t
 
@@ -44,7 +54,7 @@ def t_STRING(t):
 
 
 def t_NUMBER(t):
-    r"([0-9]+)(.[0-9]+)?"
+    r"([0-9]+)(\.[0-9]+)?"
     t.value = float(t.value)
     return t
 

@@ -31,6 +31,50 @@ class TreePrinter:
         self.table.printTree(indent + 1)
         self.variables.printTree(indent + 2)
 
+    @addToClass(AST.Select_From)
+    def printTree(self, indent=0):
+        print("| " * indent + "SELECT")
+        self.columns.printTree(indent+1)
+        print("| " * indent + "FROM")
+        self.table.printTree(indent + 1)
+        if self.joining is not None:
+            self.joining.printTree(indent)
+        if self.whering is not None:
+            self.whering.printTree(indent)
+        if self.grouping is not None:
+            self.grouping.printTree(indent)
+        if self.having is not None:
+            self.having.printTree(indent)
+        if self.ordering is not None:
+            self.ordering.printTree(indent)
+
+    @addToClass(AST.Join_On)
+    def printTree(self, indent=0):
+        print("| " * indent + "JOIN")
+        self.table.printTree(indent + 1)
+        print("| " * (indent + 1) + "ON")
+        self.condition.printTree(indent + 2)
+
+    @addToClass(AST.Where)
+    def printTree(self, indent=0):
+        print("| " * indent + "WHERE")
+        self.condition.printTree(indent + 1)
+
+    @addToClass(AST.Group_By)
+    def printTree(self, indent=0):
+        print("| " * indent + "GROUP BY")
+        self.columns.printTree(indent + 1)
+
+    @addToClass(AST.Having)
+    def printTree(self, indent=0):
+        print("| " * indent + "HAVING")
+        self.condition.printTree(indent + 1)
+
+    @addToClass(AST.Order_By)
+    def printTree(self, indent=0):
+        print("| " * indent + "ORDER BY")
+        self.columns.printTree(indent + 1)
+
     @addToClass(AST.Update)
     def printTree(self, indent=0):
         print("| " * indent + "UPDATE")
@@ -47,22 +91,6 @@ class TreePrinter:
         print("| " * indent + "WHERE")
         self.condition.printTree(indent + 1)
 
-    @addToClass(AST.Select_From)
-    def printTree(self, indent=0):
-        print("| " * indent + "SELECT")
-        self.columns.printTree(indent+1)
-        print("| " * indent + "FROM")
-        self.table.printTree(indent + 1)
-
-    @addToClass(AST.Select_From_Where)
-    def printTree(self, indent=0):
-        print("| " * indent + "SELECT")
-        self.columns.printTree(indent + 1)
-        print("| " * indent + "FROM")
-        self.table.printTree(indent + 1)
-        print("| " * indent + "WHERE")
-        self.condition.printTree(indent + 1)
-
     @addToClass(AST.Sets)
     def printTree(self, indent=0):
         self.left.printTree(indent)
@@ -73,6 +101,11 @@ class TreePrinter:
         print("| " * indent + "=")
         self.column.printTree(indent + 1)
         self.variable.printTree(indent + 1)
+
+    @addToClass(AST.Table)
+    def printTree(self, indent=0):
+        self.full.printTree(indent)
+        self.short.printTree(indent+1)
 
     @addToClass(AST.Columns)
     def printTree(self, indent=0):
@@ -88,6 +121,11 @@ class TreePrinter:
     @addToClass(AST.ID)
     def printTree(self, indent=0):
         print("| " * indent + self.name)
+
+    @addToClass(AST.NONE)
+    def printTree(self, indent=0):
+        pass
+        # print("| " * indent + "NONE")
 
     @addToClass(AST.Variables)
     def printTree(self, indent=0):

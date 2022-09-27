@@ -1,35 +1,3 @@
-CREATE TABLE colors (
-    id,
-    name,
-    xd
-)
-
-INSERT INTO colors (
-    "blue"
-)
-
-INSERT INTO colors (
-    "green"
-)
-
-INSERT INTO colors (
-    "black"
-)
-
-INSERT INTO colors (
-    "pinkk"
-)
-
-INSERT INTO colors (
-    "brown"
-)
-
-UPDATE colors
-SET name = "pink"
-WHERE id == 4
-
-DELETE FROM colors
-WHERE name == "brown"
-
 SELECT *
-FROM colors
+FROM people p
+JOIN colors c ON c.id == p.color
