@@ -105,7 +105,6 @@ class Interpreter(object):
 
         # JOIN ON
         joinings = self.visit(node.joining)
-        print(joinings)
         if joinings is not None:
             for ((fullname, shortname), condition_node) in joinings:
                 table = database.get_sheet_by_name(fullname)
@@ -138,6 +137,39 @@ class Interpreter(object):
                 new_res.append(row)
         res = new_res
 
+        # GROUP BY
+        columns = self.visit(node.grouping)
+        if columns is not None:
+            new_res = {}
+            for row in res:
+                lis = []
+                for column in columns:
+                    lis.append(row[column])
+                tup = tuple(lis)
+                if tup in new_res.keys():
+                    tmp = new_res[tup]
+                    for column_select in columns_select:
+                        if column_select not in columns:
+                            tmp[column_select] += 1
+                    new_res[tup] = tmp
+                else:
+                    tmp = {}
+                    for column_select in columns_select:
+                        if column_select not in columns:
+                            tmp[column_select] = 1
+                    new_res[tup] = tmp
+            new_res_2 = []
+            for row in new_res.keys():
+                new_dict = {}
+                for (colnum, column) in enumerate(columns):
+                    new_dict[column] = row[colnum]
+
+                new_dict = new_dict | new_res[row]
+                new_res_2.append(new_dict)
+            res = new_res_2
+
+        # HAVING
+
         # ORDER BY
         ordering = self.visit(node.ordering)
         if ordering is not None:
@@ -147,11 +179,11 @@ class Interpreter(object):
         # RETURN
         for row in res:
             line = []
-            for col in columns_select:
-                if col == "*":
+            for column in columns_select:
+                if column == "*":
                     line += list(row.values())
                 else:
-                    line.append(row[col])
+                    line.append(row[column])
             print(line)
 
     @when(AST.Joins_On)
@@ -169,7 +201,13 @@ class Interpreter(object):
 
     @when(AST.Where)
     def visit(self, node):
-        return self.visit(node.condition)
+        condition = self.visit(node.condition)
+        return condition
+
+    @when(AST.Group_By)
+    def visit(self, node):
+        columns = self.visit(node.columns)
+        return columns
 
     @when(AST.Order_By)
     def visit(self, node):
@@ -236,10 +274,9 @@ class Interpreter(object):
     def visit(self, node):
         left = self.visit(node.left)
         right = self.visit(node.right)
-        if isinstance(right, list):
-            return [left] + right
-        else:
-            return [left] + [right]
+        if right is None:
+            return [left]
+        return [left] + right
 
     @when(AST.Variable)
     def visit(self, node):
@@ -250,10 +287,9 @@ class Interpreter(object):
     def visit(self, node):
         left = self.visit(node.left)
         right = self.visit(node.right)
-        if isinstance(right, list):
-            return [left] + right
-        else:
-            return [left] + [right]
+        if right is None:
+            return [left]
+        return [left] + right
 
     @when(AST.Set)
     def visit(self, node):
@@ -271,10 +307,9 @@ class Interpreter(object):
     def visit(self, node):
         left = self.visit(node.left)
         right = self.visit(node.right)
-        if isinstance(right, list):
-            return [left] + right
-        else:
-            return [left] + [right]
+        if right is None:
+            return [left]
+        return [left] + right
 
     @when(AST.Column)
     def visit(self, node):
@@ -295,7 +330,7 @@ class Interpreter(object):
         elif left_type == "column":
             left_value = Interpreter.current_row[left]
         else:
-            raise Exception(f"Wrong type: {left_value}")
+            raise Exception(f"Wrong type: {left_type}")
 
         if right_type == "variable":
             right_value = right
@@ -309,7 +344,7 @@ class Interpreter(object):
         if op == "!=":
             return left_value != right_value
         else:
-            raise Exception(f"Wrong operator: {right_type}")
+            raise Exception(f"Wrong operator: {op}")
 
     @when(AST.Side)
     def visit(self, node):

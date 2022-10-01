@@ -51,14 +51,11 @@ WHERE l.person == 4
 DELETE FROM likes l
 WHERE l.person == 5
 
-SELECT p.name, c.name
+SELECT c.name, p.name
 FROM likes l
 JOIN people p ON p.id == l.person
 JOIN colors c ON c.id == l.color
-WHERE c.name == "blue"
-
-
-
-
+--WHERE c.name == "blue"
+GROUP BY c.name
 
 
