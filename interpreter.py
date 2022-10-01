@@ -6,8 +6,9 @@ database_name = "database.xlsx"
 
 
 def insert_first_row(sheet, row, rownum):
+    sheet.cell(row=rownum, column= 1).value = "id"
     for i in range(len(row)):
-        sheet.cell(row=rownum, column=i+1).value = row[i]
+        sheet.cell(row=rownum, column=i+2).value = row[i]
 
 
 def insert_row(sheet, row, rownum):
@@ -35,7 +36,7 @@ def read_row(sheet, rownum):
 
 def modify_row(columns, row):
     modified_row = {}
-    for colnum, column in enumerate(columns):
+    for colnum, column in enumerate(list(columns.keys())):
         modified_row[column] = row[colnum]
     return modified_row
 
@@ -52,65 +53,67 @@ class Interpreter(object):
         self.visit(node.left)
         self.visit(node.right)
 
+    @when(AST.Create_Database)
+    def visit(self, node):
+        database = openpyxl.Workbook()
+        sheet = database.get_sheet_by_name("Sheet")
+        sheet.title = "Basic stuff"
+        database.save(database_name)
+
     @when(AST.Create_Table)
     def visit(self, node):
-        table_name = self.visit(node.table)
+        (fullname, shortname) = self.visit(node.table)
         columns = self.visit(node.columns)
-        if not isinstance(columns, list):
-            columns = [columns]
 
         database = openpyxl.load_workbook(database_name)
-        if table_name in database.get_sheet_names():
-            table = database.get_sheet_by_name(table_name)
+        if fullname in database.get_sheet_names():
+            table = database.get_sheet_by_name(fullname)
             database.remove_sheet(table)
-        table = database.create_sheet(table_name)
+        table = database.create_sheet(fullname)
         insert_first_row(table, columns, 1)
 
         database.save(database_name)
 
     @when(AST.Insert_Into)
     def visit(self, node):
-        table_name = self.visit(node.table)
-        variables = self.visit(node.variables)
-        if not isinstance(variables, list):
-            variables = [variables]
+        (fullname, shortname) = self.visit(node.table)
+        values = self.visit(node.variables)
 
         database = openpyxl.load_workbook(database_name)
-        table = database.get_sheet_by_name(table_name)
-        insert_row(table, variables, table.max_row+1)
-
+        table = database.get_sheet_by_name(fullname)
+        for value in values:
+            insert_row(table, value, table.max_row+1)
         database.save(database_name)
 
     @when(AST.Select_From)
     def visit(self, node):
         # SELECT
         columns_select = self.visit(node.columns)
-        if not isinstance(columns_select, list):
-            columns_select = [columns_select]
 
         # FROM
-        (table_full, table_short) = self.visit(node.table)
+        (fullname, shortname) = self.visit(node.table)
         database = openpyxl.load_workbook(database_name)
-        table = database.get_sheet_by_name(table_full)
+        table = database.get_sheet_by_name(fullname)
 
-        columns_name = read_first_row(table, table_short)
+        columns_name = read_first_row(table, shortname)
 
         res = []
         for rownum in range(2, table.max_row + 1):
             row = read_row(table, rownum)
-            modified_row = modify_row(list(columns_name.keys()), row)
+            modified_row = modify_row(columns_name, row)
             res.append(modified_row)
 
         # JOIN ON
         joinings = self.visit(node.joining)
+        print(joinings)
         if joinings is not None:
-            for ((table_full, table_short), condition_node) in joinings:
-                table = database.get_sheet_by_name(table_full)
-                columns_name = read_first_row(table, table_short)
+            for ((fullname, shortname), condition_node) in joinings:
+                table = database.get_sheet_by_name(fullname)
+                columns_name = read_first_row(table, shortname)
                 join = []
                 for rownum in range(2, table.max_row + 1):
                     row = read_row(table, rownum)
-                    modified_row = modify_row(list(columns_name.keys()), row)
+                    modified_row = modify_row(columns_name, row)
                     join.append(modified_row)
                 new_res = []
                 for res_row in res:
@@ -148,13 +151,21 @@ class Interpreter(object):
                 if col == "*":
                     line += list(row.values())
                 else:
-                    line += row[col]
+                    line.append(row[col])
             print(line)
+
+    @when(AST.Joins_On)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if right is None:
+            return [left]
+        return [left] + right
 
     @when(AST.Join_On)
     def visit(self, node):
         table = self.visit(node.table)
-        return [(table, node.condition)]
+        return (table, node.condition)
 
     @when(AST.Where)
     def visit(self, node):
@@ -163,19 +174,17 @@ class Interpreter(object):
     @when(AST.Order_By)
     def visit(self, node):
         columns = self.visit(node.columns)
-        if not isinstance(columns, list):
-            columns = [columns]
         return columns
 
     @when(AST.Update)
     def visit(self, node):
-        table_name = self.visit(node.table)
+        (fullname, shortname) = self.visit(node.table)
         sets = self.visit(node.sets)
 
         database = openpyxl.load_workbook(database_name)
-        table = database.get_sheet_by_name(table_name)
+        table = database.get_sheet_by_name(fullname)
 
-        columns_name = read_row(table, 1)
+        columns_name = read_first_row(table, shortname)
         for rownum in range(2, table.max_row + 1):
             row = read_row(table, rownum)
             modified_row = modify_row(columns_name, row)
@@ -185,19 +194,19 @@ class Interpreter(object):
             Interpreter.current_row = None
             if condition:
                 for (column_name, value) in sets:
-                    i = columns_name.index(column_name)
+                    i = columns_name[column_name]
                     table.cell(row=rownum, column=i + 1).value = value
 
         database.save(database_name)
 
     @when(AST.Delete_From)
     def visit(self, node):
-        table_name = self.visit(node.table)
+        (fullname, shortname) = self.visit(node.table)
 
         database = openpyxl.load_workbook(database_name)
-        table = database.get_sheet_by_name(table_name)
+        table = database.get_sheet_by_name(fullname)
 
-        columns_name = read_row(table, 1)
+        columns_name = read_first_row(table, shortname)
         dels = 0
         for rownum in range(2, table.max_row + 1):
             row = read_row(table, rownum - dels)
@@ -212,17 +221,45 @@ class Interpreter(object):
 
         database.save(database_name)
 
+    @when(AST.Values)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        return [left] + right
+
+    @when(AST.Value)
+    def visit(self, node):
+        value = self.visit(node.value)
+        return value
+
+    @when(AST.Variables)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if isinstance(right, list):
+            return [left] + right
+        else:
+            return [left] + [right]
+
+    @when(AST.Variable)
+    def visit(self, node):
+        variable = self.visit(node.variable)
+        return variable
+
     @when(AST.Sets)
     def visit(self, node):
         left = self.visit(node.left)
         right = self.visit(node.right)
-        return left + right
+        if isinstance(right, list):
+            return [left] + right
+        else:
+            return [left] + [right]
 
     @when(AST.Set)
     def visit(self, node):
         column = self.visit(node.column)
         variable = self.visit(node.variable)
-        return [(column, variable)]
+        return (column, variable)
 
     @when(AST.Table)
     def visit(self, node):
@@ -234,43 +271,58 @@ class Interpreter(object):
     def visit(self, node):
         left = self.visit(node.left)
         right = self.visit(node.right)
-        if isinstance(node.right, AST.Columns):
+        if isinstance(right, list):
             return [left] + right
         else:
             return [left] + [right]
 
+    @when(AST.Column)
+    def visit(self, node):
+        column = self.visit(node.column)
+        return column
+
     @when(AST.Condition)
     def visit(self, node):
-        left = self.visit(node.left)
+        (left, left_type) = self.visit(node.left)
         op = node.op
-        right = self.visit(node.right)
-        if isinstance(node.right, AST.ID):
-            if op == "==":
-                return Interpreter.current_row[left] == Interpreter.current_row[right]
-            if op == "!=":
-                return Interpreter.current_row[left] != Interpreter.current_row[right]
-        if isinstance(node.right, AST.STRING) or isinstance(node.right, AST.NUMBER):
-            if op == "==":
-                return Interpreter.current_row[left] == right
-            if op == "!=":
-                return Interpreter.current_row[left] != right
+        (right, right_type) = self.visit(node.right)
 
-    @when(AST.ID)
+        left_value = None
+        right_value = None
+
+        if left_type == "variable":
+            left_value = left
+        elif left_type == "column":
+            left_value = Interpreter.current_row[left]
+        else:
+            raise Exception(f"Wrong type: {left_value}")
+
+        if right_type == "variable":
+            right_value = right
+        elif right_type == "column":
+            right_value = Interpreter.current_row[right]
+        else:
+            raise Exception(f"Wrong type: {right_type}")
+
+        if op == "==":
+            return left_value == right_value
+        if op == "!=":
+            return left_value != right_value
+        else:
+            raise Exception(f"Wrong operator: {right_type}")
+
+    @when(AST.Side)
     def visit(self, node):
-        return node.name
+        side = self.visit(node.side)
+        return (side, node.type)
 
     @when(AST.NONE)
     def visit(self, node):
         return None
 
-    @when(AST.Variables)
+    @when(AST.ID)
     def visit(self, node):
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        if isinstance(node.right, AST.Variables):
-            return [left] + right
-        else:
-            return [left] + [right]
+        return node.name
 
     @when(AST.STRING)
     def visit(self, node):

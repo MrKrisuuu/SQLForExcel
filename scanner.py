@@ -6,9 +6,11 @@ literals = [",", "(", ")", "=", "*"]
 reserved = {
     # create
     "CREATE": "CREATE",
+    "DATABASE": "DATABASE",
     "TABLE": "TABLE",
     "INSERT": "INSERT",
     "INTO": "INTO",
+    "VALUES": "VALUES",
     # read
     "SELECT": "SELECT",
     "FROM": "FROM",

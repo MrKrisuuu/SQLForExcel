@@ -13,6 +13,11 @@ class Instructions(Node):
         super().__init__(lineno)
 
 
+class Create_Database(Node):
+    def __init__(self, lineno):
+        super().__init__(lineno)
+
+
 class Create_Table(Node):
     def __init__(self, table, columns, lineno):
         self.table = table
@@ -36,6 +41,13 @@ class Select_From(Node):
         self.grouping = grouping
         self.having = having
         self.ordering = ordering
+        super().__init__(lineno)
+
+
+class Joins_On(Node):
+    def __init__(self, left, right, lineno):
+        self.left = left
+        self.right = right
         super().__init__(lineno)
 
 
@@ -85,6 +97,32 @@ class Delete_From(Node):
         super().__init__(lineno)
 
 
+class Values(Node):
+    def __init__(self, left, right, lineno):
+        self.left = left
+        self.right = right
+        super().__init__(lineno)
+
+
+class Value(Node):
+    def __init__(self, value, lineno):
+        self.value = value
+        super().__init__(lineno)
+
+
+class Variables(Node):
+    def __init__(self, left, right, lineno):
+        self.left = left
+        self.right = right
+        super().__init__(lineno)
+
+
+class Variable(Node):
+    def __init__(self, variable, lineno):
+        self.variable = variable
+        super().__init__(lineno)
+
+
 class Sets(Node):
     def __init__(self, left, right, lineno):
         self.left = left
@@ -113,6 +151,12 @@ class Columns(Node):
         super().__init__(lineno)
 
 
+class Column(Node):
+    def __init__(self, column, lineno):
+        self.column = column
+        super().__init__(lineno)
+
+
 class Condition(Node):
     def __init__(self, left, op, right, lineno):
         self.left = left
@@ -121,21 +165,21 @@ class Condition(Node):
         super().__init__(lineno)
 
 
-class ID(Node):
-    def __init__(self, name, lineno):
-        self.name = name
+class Side(Node):
+    def __init__(self, side, type, lineno):
+        self.side = side
+        self.type = type
         super().__init__(lineno)
 
 
 class NONE(Node):
-    def __init__(self, ):
+    def __init__(self):
         pass
 
 
-class Variables(Node):
-    def __init__(self, left, right, lineno):
-        self.left = left
-        self.right = right
+class ID(Node):
+    def __init__(self, name, lineno):
+        self.name = name
         super().__init__(lineno)
 
 

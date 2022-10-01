@@ -17,7 +17,12 @@ class TreePrinter:
     @addToClass(AST.Instructions)
     def printTree(self, indent=0):
         self.left.printTree(indent)
-        self.right.printTree(indent)
+        if self.right is not None:
+            self.right.printTree(indent)
+
+    @addToClass(AST.Create_Database)
+    def printTree(self, indent=0):
+        print("| " * indent + "CREATE DATABASE")
 
     @addToClass(AST.Create_Table)
     def printTree(self, indent=0):
@@ -47,6 +52,11 @@ class TreePrinter:
             self.having.printTree(indent)
         if self.ordering is not None:
             self.ordering.printTree(indent)
+
+    @addToClass(AST.Joins_On)
+    def printTree(self, indent=0):
+        self.left.printTree(indent)
+        self.right.printTree(indent)
 
     @addToClass(AST.Join_On)
     def printTree(self, indent=0):
@@ -91,10 +101,32 @@ class TreePrinter:
         print("| " * indent + "WHERE")
         self.condition.printTree(indent + 1)
 
+    @addToClass(AST.Values)
+    def printTree(self, indent=0):
+        self.left.printTree(indent)
+        print("| " * indent + "-----")
+        if self.right is not None:
+            self.right.printTree(indent)
+
+    @addToClass(AST.Value)
+    def printTree(self, indent=0):
+        self.value.printTree(indent)
+
+    @addToClass(AST.Variables)
+    def printTree(self, indent=0):
+        self.left.printTree(indent)
+        if self.right is not None:
+            self.right.printTree(indent)
+
+    @addToClass(AST.Variable)
+    def printTree(self, indent=0):
+        self.variable.printTree(indent)
+
     @addToClass(AST.Sets)
     def printTree(self, indent=0):
         self.left.printTree(indent)
-        self.right.printTree(indent)
+        if self.right is not None:
+            self.right.printTree(indent)
 
     @addToClass(AST.Set)
     def printTree(self, indent=0):
@@ -105,12 +137,17 @@ class TreePrinter:
     @addToClass(AST.Table)
     def printTree(self, indent=0):
         self.full.printTree(indent)
-        self.short.printTree(indent+1)
+        self.short.printTree(indent)
 
     @addToClass(AST.Columns)
     def printTree(self, indent=0):
         self.left.printTree(indent)
-        self.right.printTree(indent)
+        if self.right is not None:
+            self.right.printTree(indent)
+
+    @addToClass(AST.Column)
+    def printTree(self, indent=0):
+        self.column.printTree(indent)
 
     @addToClass(AST.Condition)
     def printTree(self, indent=0):
@@ -118,19 +155,18 @@ class TreePrinter:
         self.left.printTree(indent + 1)
         self.right.printTree(indent + 1)
 
-    @addToClass(AST.ID)
+    @addToClass(AST.Side)
     def printTree(self, indent=0):
-        print("| " * indent + self.name)
+        self.side.printTree(indent)
+        print("| " * (indent + 1) + self.type)
 
     @addToClass(AST.NONE)
     def printTree(self, indent=0):
         pass
-        # print("| " * indent + "NONE")
 
-    @addToClass(AST.Variables)
+    @addToClass(AST.ID)
     def printTree(self, indent=0):
-        self.left.printTree(indent)
-        self.right.printTree(indent)
+        print("| " * indent + self.name)
 
     @addToClass(AST.STRING)
     def printTree(self, indent=0):
