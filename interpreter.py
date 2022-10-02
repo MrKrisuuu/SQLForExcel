@@ -150,20 +150,35 @@ class Interpreter(object):
                     tmp = new_res[tup]
                     for column_select in columns_select:
                         if column_select not in columns:
-                            tmp[column_select] += 1
+                            (function, col) = column_select
+                            if function == "COUNT":
+                                tmp[column_select] += 1
+                            if function == "SUM":
+                                tmp[column_select] += row[col]
+                            if function == "MIN":
+                                tmp[column_select] = min(tmp[column_select], row[col])
+                            if function == "MAX":
+                                tmp[column_select] = max(tmp[column_select], row[col])
                     new_res[tup] = tmp
                 else:
                     tmp = {}
                     for column_select in columns_select:
                         if column_select not in columns:
-                            tmp[column_select] = 1
+                            (function, col) = column_select
+                            if function == "COUNT":
+                                tmp[column_select] = 1
+                            if function == "SUM":
+                                tmp[column_select] = row[col]
+                            if function == "MIN":
+                                tmp[column_select] = row[col]
+                            if function == "MAX":
+                                tmp[column_select] = row[col]
                     new_res[tup] = tmp
             new_res_2 = []
             for row in new_res.keys():
                 new_dict = {}
                 for (colnum, column) in enumerate(columns):
                     new_dict[column] = row[colnum]
-
                 new_dict = new_dict | new_res[row]
                 new_res_2.append(new_dict)
             res = new_res_2
@@ -302,6 +317,20 @@ class Interpreter(object):
         full = self.visit(node.full)
         short = self.visit(node.short)
         return (full, short)
+
+    @when(AST.Aggregates)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if right is None:
+            return [left]
+        return [left] + right
+
+    @when(AST.Aggregate)
+    def visit(self, node):
+        function = self.visit(node.function)
+        column = self.visit(node.column)
+        return (function, column)
 
     @when(AST.Columns)
     def visit(self, node):

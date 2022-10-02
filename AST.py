@@ -144,6 +144,20 @@ class Table(Node):
         super().__init__(lineno)
 
 
+class Aggregates(Node):
+    def __init__(self, left, right, lineno):
+        self.left = left
+        self.right = right
+        super().__init__(lineno)
+
+
+class Aggregate(Node):
+    def __init__(self, function, column, lineno):
+        self.function = function
+        self.column = column
+        super().__init__(lineno)
+
+
 class Columns(Node):
     def __init__(self, left, right, lineno):
         self.left = left

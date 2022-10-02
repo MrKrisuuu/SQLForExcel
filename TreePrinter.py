@@ -139,6 +139,17 @@ class TreePrinter:
         self.full.printTree(indent)
         self.short.printTree(indent)
 
+    @addToClass(AST.Aggregates)
+    def printTree(self, indent=0):
+        self.left.printTree(indent)
+        if self.right is not None:
+            self.right.printTree(indent)
+
+    @addToClass(AST.Aggregate)
+    def printTree(self, indent=0):
+        self.function.printTree(indent)
+        self.column.printTree(indent + 1)
+
     @addToClass(AST.Columns)
     def printTree(self, indent=0):
         self.left.printTree(indent)

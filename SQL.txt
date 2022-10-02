@@ -51,11 +51,20 @@ WHERE l.person == 4
 DELETE FROM likes l
 WHERE l.person == 5
 
-SELECT c.name, p.name
+--SELECT p.name, COUNT(c.name)
+--FROM likes l
+--JOIN people p ON p.id == l.person
+--JOIN colors c ON c.id == l.color
+--WHERE c.name == "blue"
+--GROUP BY p.name
+
+SELECT c.name, COUNT(*), MIN(p.year), MAX(p.year)
 FROM likes l
 JOIN people p ON p.id == l.person
 JOIN colors c ON c.id == l.color
---WHERE c.name == "blue"
 GROUP BY c.name
 
-
+SELECT c.name, p.year
+FROM likes l
+JOIN people p ON p.id == l.person
+JOIN colors c ON c.id == l.color

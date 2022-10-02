@@ -7,7 +7,7 @@ tokens = scanner.tokens
 
 def p_error(p):
     if p:
-        print(f"Error")
+        print(f"Error at line {p.lineno} with {p.value}")
 
 
 def p_program(p):
@@ -41,7 +41,7 @@ def p_insert_into(p):
 
 
 def p_instruction_select(p):
-    """instruction : SELECT columns FROM table joinings whering grouping having ordering"""
+    """instruction : SELECT aggregates FROM table joinings whering grouping having ordering"""
     p[0] = AST.Select_From(p[2], p[4], p[5], p[6], p[7], p[8], p[9], p.lineno(1))
 
 
@@ -158,6 +158,35 @@ def p_table_shortname(p):
 def p_table(p):
     """table : ID"""
     p[0] = AST.Table(AST.ID(p[1], p.lineno(1)), AST.ID(p[1], p.lineno(1)), p.lineno(1))
+
+
+def p_aggregates_doubler(p):
+    """aggregates : aggregate "," aggregates"""
+    p[0] = AST.Aggregates(p[1], p[3], p.lineno(1))
+
+
+def p_aggregates(p):
+    """aggregates : aggregate"""
+    p[0] = AST.Aggregates(p[1], None, p.lineno(1))
+
+
+def p_aggregate(p):
+    """aggregate : function "(" column ")" """
+    p[0] = AST.Aggregate(p[1], p[3], p.lineno(1))
+
+
+def p_aggregate_column(p):
+    """aggregate : column """
+    p[0] = AST.Column(p[1], p.lineno(1))
+
+
+def p_function(p):
+    """function : SUM
+        | COUNT
+        | AVG
+        | MIN
+        | MAX"""
+    p[0] = AST.ID(p[1], p.lineno(1))
 
 
 def p_columns_doubler(p):

@@ -19,6 +19,11 @@ reserved = {
     "WHERE": "WHERE",
     "GROUP": "GROUP",
     "BY": "BY",
+    "SUM": "SUM",
+    "COUNT": "COUNT",
+    "AVG": "AVG",
+    "MIN": "MIN",
+    "MAX": "MAX",
     "HAVING": "HAVING",
     "ORDER": "ORDER",
     # update
