@@ -1,14 +1,12 @@
-from scanner import lexer
-from parser import parser
-from interpreter import Interpreter
-from TreePrinter import TreePrinter
+from manager import Manager
 
 if __name__ == '__main__':
-    filename = "SQL.txt"
+    filename = "selects.sql"
+    #filename = "sample_database.sql"
     file = open(filename, "r")
-
     text = file.read()
-    ast = parser.parse(text, lexer=lexer)
 
-    ast.accept(Interpreter())
+    m = Manager("test")
+    m.execute(text)
+
 

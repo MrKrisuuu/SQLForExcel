@@ -2,7 +2,7 @@ import AST
 from visit import *
 import openpyxl
 
-database_name = "database.xlsx"
+ROW_COLUMN_NAMES = 1
 
 
 def insert_first_row(sheet, row, rownum):
@@ -21,28 +21,29 @@ def insert_row(sheet, row, rownum):
         sheet.cell(row=rownum, column=i+1).value = row[i]
 
 
-def read_first_row(sheet, shortname):
-    row = sheet[1]
+def get_columns_names(sheet, shortname):  # {column_name -> id_column}
+    row = sheet[ROW_COLUMN_NAMES]
     data = {}
     for (i, cell) in enumerate(row):
         data[shortname + "." + cell.value] = i
     return data
 
 
-def read_row(sheet, rownum):
+def read_row(sheet, column_names, rownum):  # {column_name -> value}
     row = sheet[rownum]
-    return [cell.value for cell in row]
-
-
-def modify_row(columns, row):
     modified_row = {}
-    for colnum, column in enumerate(list(columns.keys())):
-        modified_row[column] = row[colnum]
+    for column_name in column_names.keys():
+        modified_row[column_name] = row[column_names[column_name]].value
     return modified_row
 
 
 class Interpreter(object):
     current_row = None
+
+    def __init__(self, name):
+        self.name = name
+
+    # BASIC STUFF
 
     @on('node')
     def visit(self, node):
@@ -53,77 +54,90 @@ class Interpreter(object):
         self.visit(node.left)
         self.visit(node.right)
 
-    @when(AST.Create_Database)
-    def visit(self, node):
-        database = openpyxl.Workbook()
-        sheet = database.get_sheet_by_name("Sheet")
-        sheet.title = "Basic stuff"
-        database.save(database_name)
+    # CRUD
 
-    @when(AST.Create_Table)
+    @when(AST.CreateTable)
     def visit(self, node):
         (fullname, shortname) = self.visit(node.table)
         columns = self.visit(node.columns)
-
-        database = openpyxl.load_workbook(database_name)
+        database = openpyxl.load_workbook(self.name)
         if fullname in database.get_sheet_names():
             table = database.get_sheet_by_name(fullname)
             database.remove_sheet(table)
         table = database.create_sheet(fullname)
         insert_first_row(table, columns, 1)
+        database.save(self.name)
 
-        database.save(database_name)
-
-    @when(AST.Insert_Into)
+    @when(AST.InsertInto)
     def visit(self, node):
         (fullname, shortname) = self.visit(node.table)
         values = self.visit(node.variables)
-
-        database = openpyxl.load_workbook(database_name)
+        database = openpyxl.load_workbook(self.name)
         table = database.get_sheet_by_name(fullname)
         for value in values:
-            insert_row(table, value, table.max_row+1)
-        database.save(database_name)
+            insert_row(table, value, table.max_row + 1)
+        database.save(self.name)
 
-    @when(AST.Select_From)
+    @when(AST.SelectFrom)
     def visit(self, node):
         # SELECT
-        columns_select = self.visit(node.columns)
+        columns_select = self.visit(node.columns)  # [column_name]
 
         # FROM
         (fullname, shortname) = self.visit(node.table)
-        database = openpyxl.load_workbook(database_name)
+        database = openpyxl.load_workbook(self.name)
         table = database.get_sheet_by_name(fullname)
 
-        columns_name = read_first_row(table, shortname)
+        column_names = get_columns_names(table, shortname)
 
         res = []
         for rownum in range(2, table.max_row + 1):
-            row = read_row(table, rownum)
-            modified_row = modify_row(columns_name, row)
-            res.append(modified_row)
+            row = read_row(table, column_names, rownum)
+            res.append(row)
 
         # JOIN ON
+        left = res
         joinings = self.visit(node.joining)
         if joinings is not None:
-            for ((fullname, shortname), condition_node) in joinings:
+            for (join_type, (fullname, shortname), condition_node) in joinings:
                 table = database.get_sheet_by_name(fullname)
-                columns_name = read_first_row(table, shortname)
-                join = []
+                column_names = get_columns_names(table, shortname)
+                right = []
                 for rownum in range(2, table.max_row + 1):
-                    row = read_row(table, rownum)
-                    modified_row = modify_row(columns_name, row)
-                    join.append(modified_row)
+                    row = read_row(table, column_names, rownum)
+                    right.append(row)
                 new_res = []
-                for res_row in res:
-                    for join_row in join:
-                        new_row = res_row | join_row
-                        Interpreter.current_row = new_row
-                        condition = self.visit(condition_node)
-                        Interpreter.current_row = None
-                        if condition:
-                            new_res.append(new_row)
-                res = new_res
+                if join_type is None:
+                    for left_row in left:
+                        for right_row in right:
+                            joined_row = left_row | right_row
+                            Interpreter.current_row = joined_row
+                            condition = self.visit(condition_node)
+                            Interpreter.current_row = None
+                            if condition:
+                                new_res.append(joined_row)
+                    left = new_res
+                if join_type == "LEFT":
+                    for left_row in left:
+                        added = 0
+                        for right_row in right:
+                            joined_row = left_row | right_row
+                            Interpreter.current_row = joined_row
+                            condition = self.visit(condition_node)
+                            Interpreter.current_row = None
+                            if condition:
+                                added = 1
+                                new_res.append(joined_row)
+                        if added == 0:
+                            joined_row = left_row | dict.fromkeys(right[0], None)
+                            new_res.append(joined_row)
+
+                    left = new_res
+                if join_type == "RIGHT":
+                    raise Exception("RIGHT is not implemented.")
+                if join_type == "FULL":
+                    raise Exception("FULL is not implemented.")
+        res = left
 
         # WHERE
         new_res = []
@@ -151,29 +165,62 @@ class Interpreter(object):
                     for column_select in columns_select:
                         if column_select not in columns:
                             (function, col) = column_select
-                            if function == "COUNT":
-                                tmp[column_select] += 1
-                            if function == "SUM":
-                                tmp[column_select] += row[col]
-                            if function == "MIN":
-                                tmp[column_select] = min(tmp[column_select], row[col])
-                            if function == "MAX":
-                                tmp[column_select] = max(tmp[column_select], row[col])
-                    new_res[tup] = tmp
+                            if col == "*" or row[col] is not None:
+                                if function == "COUNT":
+                                    tmp[column_select] += 1
+                                if function == "SUM":
+                                    tmp[column_select] += row[col]
+                                if function == "AVG":
+                                    tmp[column_select] = (tmp[column_select][0] + row[col], tmp[column_select][1] + 1)
+                                if function == "MIN":
+                                    if tmp[column_select] is None:
+                                        tmp[column_select] = row[col]
+                                    else:
+                                        tmp[column_select] = min(tmp[column_select], row[col])
+                                if function == "MAX":
+                                    if tmp[column_select] is None:
+                                        tmp[column_select] = row[col]
+                                    else:
+                                        tmp[column_select] = max(tmp[column_select], row[col])
                 else:
                     tmp = {}
                     for column_select in columns_select:
                         if column_select not in columns:
                             (function, col) = column_select
-                            if function == "COUNT":
-                                tmp[column_select] = 1
-                            if function == "SUM":
-                                tmp[column_select] = row[col]
-                            if function == "MIN":
-                                tmp[column_select] = row[col]
-                            if function == "MAX":
-                                tmp[column_select] = row[col]
+                            if col == "*" or row[col] is not None:
+                                if function == "COUNT":
+                                    tmp[column_select] = 1
+                                if function == "SUM":
+                                    tmp[column_select] = row[col]
+                                if function == "AVG":
+                                    tmp[column_select] = (row[col], 1)
+                                if function == "MIN":
+                                    tmp[column_select] = row[col]
+                                if function == "MAX":
+                                    tmp[column_select] = row[col]
+                            else:
+                                if function == "COUNT":
+                                    tmp[column_select] = 0
+                                if function == "SUM":
+                                    tmp[column_select] = 0
+                                if function == "AVG":
+                                    tmp[column_select] = (0, 0)
+                                if function == "MIN":
+                                    tmp[column_select] = None
+                                if function == "MAX":
+                                    tmp[column_select] = None
                     new_res[tup] = tmp
+            for tup in new_res.keys():
+                tmp = new_res[tup]
+                for column_select in columns_select:
+                    if column_select not in columns:
+                        (function, col) = column_select
+                        if function == "AVG":
+                            if tmp[column_select][1] == 0:
+                                tmp[column_select] = None
+                            else:
+                                tmp[column_select] = tmp[column_select][0] / tmp[column_select][1]
+                new_res[tup] = tmp
             new_res_2 = []
             for row in new_res.keys():
                 new_dict = {}
@@ -184,6 +231,16 @@ class Interpreter(object):
             res = new_res_2
 
         # HAVING
+        new_res = []
+        for row in res:
+            Interpreter.current_row = row
+            condition = self.visit(node.having)
+            Interpreter.current_row = None
+            if condition is None:
+                new_res.append(row)
+            elif condition:
+                new_res.append(row)
+        res = new_res
 
         # ORDER BY
         ordering = self.visit(node.ordering)
@@ -192,6 +249,7 @@ class Interpreter(object):
                 res.sort(key=lambda x: x[columns_name[column]])
 
         # RETURN
+        print(columns_select)
         for row in res:
             line = []
             for column in columns_select:
@@ -200,123 +258,44 @@ class Interpreter(object):
                 else:
                     line.append(row[column])
             print(line)
-
-    @when(AST.Joins_On)
-    def visit(self, node):
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        if right is None:
-            return [left]
-        return [left] + right
-
-    @when(AST.Join_On)
-    def visit(self, node):
-        table = self.visit(node.table)
-        return (table, node.condition)
-
-    @when(AST.Where)
-    def visit(self, node):
-        condition = self.visit(node.condition)
-        return condition
-
-    @when(AST.Group_By)
-    def visit(self, node):
-        columns = self.visit(node.columns)
-        return columns
-
-    @when(AST.Order_By)
-    def visit(self, node):
-        columns = self.visit(node.columns)
-        return columns
+        print()
 
     @when(AST.Update)
     def visit(self, node):
         (fullname, shortname) = self.visit(node.table)
         sets = self.visit(node.sets)
-
-        database = openpyxl.load_workbook(database_name)
+        database = openpyxl.load_workbook(self.name)
         table = database.get_sheet_by_name(fullname)
-
-        columns_name = read_first_row(table, shortname)
+        column_names = get_columns_names(table, shortname)
         for rownum in range(2, table.max_row + 1):
-            row = read_row(table, rownum)
-            modified_row = modify_row(columns_name, row)
-
-            Interpreter.current_row = modified_row
+            row = read_row(table, column_names, rownum)
+            Interpreter.current_row = row
             condition = self.visit(node.condition)
             Interpreter.current_row = None
             if condition:
                 for (column_name, value) in sets:
-                    i = columns_name[column_name]
+                    i = column_names[column_name]
                     table.cell(row=rownum, column=i + 1).value = value
+        database.save(self.name)
 
-        database.save(database_name)
-
-    @when(AST.Delete_From)
+    @when(AST.DeleteFrom)
     def visit(self, node):
         (fullname, shortname) = self.visit(node.table)
-
-        database = openpyxl.load_workbook(database_name)
+        database = openpyxl.load_workbook(self.name)
         table = database.get_sheet_by_name(fullname)
-
-        columns_name = read_first_row(table, shortname)
+        column_names = get_columns_names(table, shortname)
         dels = 0
         for rownum in range(2, table.max_row + 1):
-            row = read_row(table, rownum - dels)
-            modified_row = modify_row(columns_name, row)
-
-            Interpreter.current_row = modified_row
+            row = read_row(table, column_names, rownum - dels)
+            Interpreter.current_row = row
             condition = self.visit(node.condition)
             Interpreter.current_row = None
             if condition:
                 table.delete_rows(rownum - dels, 1)
                 dels += 1
+        database.save(self.name)
 
-        database.save(database_name)
-
-    @when(AST.Values)
-    def visit(self, node):
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        return [left] + right
-
-    @when(AST.Value)
-    def visit(self, node):
-        value = self.visit(node.value)
-        return value
-
-    @when(AST.Variables)
-    def visit(self, node):
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        if right is None:
-            return [left]
-        return [left] + right
-
-    @when(AST.Variable)
-    def visit(self, node):
-        variable = self.visit(node.variable)
-        return variable
-
-    @when(AST.Sets)
-    def visit(self, node):
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        if right is None:
-            return [left]
-        return [left] + right
-
-    @when(AST.Set)
-    def visit(self, node):
-        column = self.visit(node.column)
-        variable = self.visit(node.variable)
-        return (column, variable)
-
-    @when(AST.Table)
-    def visit(self, node):
-        full = self.visit(node.full)
-        short = self.visit(node.short)
-        return (full, short)
+    # SELECT
 
     @when(AST.Aggregates)
     def visit(self, node):
@@ -332,6 +311,92 @@ class Interpreter(object):
         column = self.visit(node.column)
         return (function, column)
 
+    @when(AST.Table)
+    def visit(self, node):
+        full = self.visit(node.full)
+        short = self.visit(node.short)
+        return (full, short)
+
+    @when(AST.JoinsOn)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if right is None:
+            return [left]
+        return [left] + right
+
+    @when(AST.JoinOn)
+    def visit(self, node):
+        join_type = self.visit(node.join_type)
+        table = self.visit(node.table)
+        return (join_type, table, node.condition)
+
+    @when(AST.Where)
+    def visit(self, node):
+        condition = self.visit(node.condition)
+        return condition
+
+    @when(AST.GroupBy)
+    def visit(self, node):
+        columns = self.visit(node.columns)
+        return columns
+
+    @when(AST.Having)
+    def visit(self, node):
+        condition = self.visit(node.condition)
+        return condition
+
+    @when(AST.OrderBy)
+    def visit(self, node):
+        columns = self.visit(node.columns)
+        return columns
+
+    # DOUBLERS
+
+    # VALUES
+    @when(AST.Values)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if right is None:
+            return [left]
+        return [left] + right
+
+    @when(AST.Value)
+    def visit(self, node):
+        value = self.visit(node.value)
+        return value
+
+    # VARIABLES
+    @when(AST.Variables)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if right is None:
+            return [left]
+        return [left] + right
+
+    @when(AST.Variable)
+    def visit(self, node):
+        variable = self.visit(node.variable)
+        return variable
+
+    # SETS
+    @when(AST.Sets)
+    def visit(self, node):
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        if right is None:
+            return [left]
+        return [left] + right
+
+    @when(AST.Set)
+    def visit(self, node):
+        column = self.visit(node.column)
+        variable = self.visit(node.variable)
+        return (column, variable)
+
+    # COLUMNS
     @when(AST.Columns)
     def visit(self, node):
         left = self.visit(node.left)
@@ -345,11 +410,16 @@ class Interpreter(object):
         column = self.visit(node.column)
         return column
 
+    # OTHERS
+
     @when(AST.Condition)
     def visit(self, node):
         (left, left_type) = self.visit(node.left)
         op = node.op
         (right, right_type) = self.visit(node.right)
+
+        if left is None or right is None:
+            return False
 
         left_value = None
         right_value = None
@@ -358,12 +428,16 @@ class Interpreter(object):
             left_value = left
         elif left_type == "column":
             left_value = Interpreter.current_row[left]
+        elif left_type == "aggregate":
+            left_value = Interpreter.current_row[left]
         else:
             raise Exception(f"Wrong type: {left_type}")
 
         if right_type == "variable":
             right_value = right
         elif right_type == "column":
+            right_value = Interpreter.current_row[right]
+        elif right_type == "aggregate":
             right_value = Interpreter.current_row[right]
         else:
             raise Exception(f"Wrong type: {right_type}")
@@ -372,6 +446,14 @@ class Interpreter(object):
             return left_value == right_value
         if op == "!=":
             return left_value != right_value
+        if op == "<":
+            return left_value < right_value
+        if op == ">":
+            return left_value > right_value
+        if op == "<=":
+            return left_value <= right_value
+        if op == ">=":
+            return left_value >= right_value
         else:
             raise Exception(f"Wrong operator: {op}")
 

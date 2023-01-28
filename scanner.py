@@ -1,12 +1,10 @@
 import ply.lex as lex
-from decimal import Decimal
 
 literals = [",", "(", ")", "=", "*"]
 
 reserved = {
     # create
     "CREATE": "CREATE",
-    "DATABASE": "DATABASE",
     "TABLE": "TABLE",
     "INSERT": "INSERT",
     "INTO": "INTO",
@@ -14,6 +12,9 @@ reserved = {
     # read
     "SELECT": "SELECT",
     "FROM": "FROM",
+    "LEFT": "LEFT",
+    "RIGHT": "RIGHT",
+    "FULL": "FULL",
     "JOIN": "JOIN",
     "ON": "ON",
     "WHERE": "WHERE",
@@ -37,6 +38,10 @@ tokens = [
     "ID",
     "EQUAL",
     "NOT_EQUAL",
+    "LESS",
+    "MORE",
+    "LESS_EQUAL",
+    "MORE_EQUAL",
     "STRING",
     "NUMBER"
 ] + list(reserved.values())
@@ -46,10 +51,14 @@ t_ignore_COMMENT = "--.*"
 
 t_EQUAL = "=="
 t_NOT_EQUAL = "!="
+t_LESS = "<"
+t_MORE = ">"
+t_LESS_EQUAL = "<="
+t_MORE_EQUAL = ">="
 
 
 def t_ID(t):
-    r"[A-Z]+|([a-z]+)(\.[a-z]+)?"
+    r"[A-Z]+|([a-z_]+)(\.[a-z_]+)?"
     t.type = reserved.get(t.value, "ID")
     return t
 

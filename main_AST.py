@@ -3,7 +3,7 @@ from parser import parser
 from TreePrinter import TreePrinter
 
 if __name__ == '__main__':
-    filename = "SQL.txt"
+    filename = "selects.sql"
     file = open(filename, "r")
 
     text = file.read()

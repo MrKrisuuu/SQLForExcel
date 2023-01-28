@@ -20,23 +20,19 @@ class TreePrinter:
         if self.right is not None:
             self.right.printTree(indent)
 
-    @addToClass(AST.Create_Database)
-    def printTree(self, indent=0):
-        print("| " * indent + "CREATE DATABASE")
-
-    @addToClass(AST.Create_Table)
+    @addToClass(AST.CreateTable)
     def printTree(self, indent=0):
         print("| " * indent + "CREATE TABLE")
         self.table.printTree(indent + 1)
         self.columns.printTree(indent + 2)
 
-    @addToClass(AST.Insert_Into)
+    @addToClass(AST.InsertInto)
     def printTree(self, indent=0):
         print("| " * indent + "INSERT INTO")
         self.table.printTree(indent + 1)
         self.variables.printTree(indent + 2)
 
-    @addToClass(AST.Select_From)
+    @addToClass(AST.SelectFrom)
     def printTree(self, indent=0):
         print("| " * indent + "SELECT")
         self.columns.printTree(indent+1)
@@ -53,12 +49,12 @@ class TreePrinter:
         if self.ordering is not None:
             self.ordering.printTree(indent)
 
-    @addToClass(AST.Joins_On)
+    @addToClass(AST.JoinsOn)
     def printTree(self, indent=0):
         self.left.printTree(indent)
         self.right.printTree(indent)
 
-    @addToClass(AST.Join_On)
+    @addToClass(AST.JoinOn)
     def printTree(self, indent=0):
         print("| " * indent + "JOIN")
         self.table.printTree(indent + 1)
@@ -70,7 +66,7 @@ class TreePrinter:
         print("| " * indent + "WHERE")
         self.condition.printTree(indent + 1)
 
-    @addToClass(AST.Group_By)
+    @addToClass(AST.GroupBy)
     def printTree(self, indent=0):
         print("| " * indent + "GROUP BY")
         self.columns.printTree(indent + 1)
@@ -80,7 +76,7 @@ class TreePrinter:
         print("| " * indent + "HAVING")
         self.condition.printTree(indent + 1)
 
-    @addToClass(AST.Order_By)
+    @addToClass(AST.OrderBy)
     def printTree(self, indent=0):
         print("| " * indent + "ORDER BY")
         self.columns.printTree(indent + 1)
@@ -94,7 +90,7 @@ class TreePrinter:
         print("| " * indent + "WHERE")
         self.condition.printTree(indent + 1)
 
-    @addToClass(AST.Delete_From)
+    @addToClass(AST.DeleteFrom)
     def printTree(self, indent=0):
         print("| " * indent + "DELETE FROM")
         self.table.printTree(indent + 1)
