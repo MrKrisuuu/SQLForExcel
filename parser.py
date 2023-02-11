@@ -14,7 +14,8 @@ def p_error(p):
 
 
 def p_program(p):
-    """program : instructions"""
+    """program : instructions
+        | instruction_select"""
     p[0] = p[1]
 
 
@@ -42,7 +43,7 @@ def p_insert_into(p):
 
 
 def p_select(p):
-    """instruction : SELECT aggregates FROM table joinings whering grouping having ordering"""
+    """instruction_select : SELECT aggregates FROM table joinings whering grouping having ordering"""
     p[0] = AST.SelectFrom(p[2], p[4], p[5], p[6], p[7], p[8], p[9], p.lineno(1))
 
 
@@ -144,7 +145,7 @@ def p_having_nothing(p):
 
 
 def p_order_by(p):
-    """ordering : ORDER BY columns"""
+    """ordering : ORDER BY aggregates"""
     p[0] = AST.OrderBy(p[3], p.lineno(1))
 
 

@@ -34,10 +34,21 @@ CREATE TABLE likes (
 
 INSERT INTO likes VALUES
     (1, 3),
-    (1, 5),
+    (1, 1),
+    (5, 4),
     (2, 1),
     (2, 5),
     (3, 1),
     (3, 2),
+    (5, 2),
     (3, 3),
-    (4, 2)
+    (4, 2),
+    (5, 1)
+
+UPDATE likes l
+SET l.id_color = 5
+WHERE l.id == 2
+
+DELETE FROM likes l
+WHERE l.id_person == 5
+

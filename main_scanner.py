@@ -2,7 +2,7 @@ from scanner import lexer
 
 
 if __name__ == '__main__':
-    filename = "selects.sql"
+    filename = "tests/selects.sql"
     file = open(filename, "r")
 
     text = file.read()

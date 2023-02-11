@@ -6,7 +6,7 @@ ROW_COLUMN_NAMES = 1
 
 
 def insert_first_row(sheet, row, rownum):
-    sheet.cell(row=rownum, column= 1).value = "id"
+    sheet.cell(row=rownum, column=1).value = "id"
     for i in range(len(row)):
         sheet.cell(row=rownum, column=i+2).value = row[i]
 
@@ -38,10 +38,9 @@ def read_row(sheet, column_names, rownum):  # {column_name -> value}
 
 
 class Interpreter(object):
-    current_row = None
-
     def __init__(self, name):
         self.name = name
+        self.current_row = None
 
     # BASIC STUFF
 
@@ -81,22 +80,22 @@ class Interpreter(object):
     @when(AST.SelectFrom)
     def visit(self, node):
         # SELECT
-        columns_select = self.visit(node.columns)  # [column_name]
+        columns_in_select = self.visit(node.columns)  # [column_name]
 
         # FROM
-        (fullname, shortname) = self.visit(node.table)
+        (fullname, shortname) = self.visit(node.table)  # (fullname, shortname)
         database = openpyxl.load_workbook(self.name)
         table = database.get_sheet_by_name(fullname)
 
-        column_names = get_columns_names(table, shortname)
+        column_names = get_columns_names(table, shortname)  # {column_name -> id_column}
 
-        res = []
+        current_result = []   # [{column_name -> value}]
         for rownum in range(2, table.max_row + 1):
             row = read_row(table, column_names, rownum)
-            res.append(row)
+            current_result.append(row)
 
         # JOIN ON
-        left = res
+        left = current_result
         joinings = self.visit(node.joining)
         if joinings is not None:
             for (join_type, (fullname, shortname), condition_node) in joinings:
@@ -106,159 +105,168 @@ class Interpreter(object):
                 for rownum in range(2, table.max_row + 1):
                     row = read_row(table, column_names, rownum)
                     right.append(row)
-                new_res = []
+                tmp_result = []
                 if join_type is None:
                     for left_row in left:
                         for right_row in right:
                             joined_row = left_row | right_row
-                            Interpreter.current_row = joined_row
+                            self.current_row = joined_row
                             condition = self.visit(condition_node)
-                            Interpreter.current_row = None
+                            self.current_row = None
                             if condition:
-                                new_res.append(joined_row)
-                    left = new_res
+                                tmp_result.append(joined_row)
+                    left = tmp_result
                 if join_type == "LEFT":
                     for left_row in left:
                         added = 0
                         for right_row in right:
                             joined_row = left_row | right_row
-                            Interpreter.current_row = joined_row
+                            self.current_row = joined_row
                             condition = self.visit(condition_node)
-                            Interpreter.current_row = None
+                            self.current_row = None
                             if condition:
                                 added = 1
-                                new_res.append(joined_row)
+                                tmp_result.append(joined_row)
                         if added == 0:
                             joined_row = left_row | dict.fromkeys(right[0], None)
-                            new_res.append(joined_row)
-
-                    left = new_res
+                            tmp_result.append(joined_row)
+                    left = tmp_result
                 if join_type == "RIGHT":
                     raise Exception("RIGHT is not implemented.")
                 if join_type == "FULL":
                     raise Exception("FULL is not implemented.")
-        res = left
+        current_result = left
 
         # WHERE
-        new_res = []
-        for row in res:
-            Interpreter.current_row = row
+        tmp_result = []
+        for row in current_result:
+            self.current_row = row
             condition = self.visit(node.whering)
-            Interpreter.current_row = None
+            self.current_row = None
             if condition is None:
-                new_res.append(row)
+                tmp_result.append(row)
             elif condition:
-                new_res.append(row)
-        res = new_res
+                tmp_result.append(row)
+        current_result = tmp_result
 
         # GROUP BY
-        columns = self.visit(node.grouping)
-        if columns is not None:
-            new_res = {}
-            for row in res:
+        columns_in_group_by = self.visit(node.grouping)
+        if columns_in_group_by is not None:
+            tmp_result = {}
+            for row in current_result:
                 lis = []
-                for column in columns:
+                for column in columns_in_group_by:
                     lis.append(row[column])
-                tup = tuple(lis)
-                if tup in new_res.keys():
-                    tmp = new_res[tup]
-                    for column_select in columns_select:
-                        if column_select not in columns:
-                            (function, col) = column_select
+                values_group_by = tuple(lis)
+                if values_group_by in tmp_result.keys():
+                    tmp_values = tmp_result[values_group_by]
+                    for current_column in columns_in_select:
+                        if current_column not in columns_in_group_by:
+                            (function, col) = current_column
                             if col == "*" or row[col] is not None:
-                                if function == "COUNT":
-                                    tmp[column_select] += 1
-                                if function == "SUM":
-                                    tmp[column_select] += row[col]
-                                if function == "AVG":
-                                    tmp[column_select] = (tmp[column_select][0] + row[col], tmp[column_select][1] + 1)
-                                if function == "MIN":
-                                    if tmp[column_select] is None:
-                                        tmp[column_select] = row[col]
-                                    else:
-                                        tmp[column_select] = min(tmp[column_select], row[col])
-                                if function == "MAX":
-                                    if tmp[column_select] is None:
-                                        tmp[column_select] = row[col]
-                                    else:
-                                        tmp[column_select] = max(tmp[column_select], row[col])
+                                match function:
+                                    case "COUNT":
+                                        tmp_values[current_column] += 1
+                                    case "SUM":
+                                        tmp_values[current_column] += row[col]
+                                    case "AVG":
+                                        tmp_values[current_column] = (tmp_values[current_column][0] + row[col], tmp_values[current_column][1] + 1)
+                                    case "MIN":
+                                        if tmp_values[current_column] is None:
+                                            tmp_values[current_column] = row[col]
+                                        else:
+                                            tmp_values[current_column] = min(tmp_values[current_column], row[col])
+                                    case "MAX":
+                                        if tmp_values[current_column] is None:
+                                            tmp_values[current_column] = row[col]
+                                        else:
+                                            tmp_values[current_column] = max(tmp_values[current_column], row[col])
                 else:
-                    tmp = {}
-                    for column_select in columns_select:
-                        if column_select not in columns:
-                            (function, col) = column_select
+                    tmp_values = {}
+                    for current_column in columns_in_select:
+                        if current_column not in columns_in_group_by:
+                            (function, col) = current_column
                             if col == "*" or row[col] is not None:
-                                if function == "COUNT":
-                                    tmp[column_select] = 1
-                                if function == "SUM":
-                                    tmp[column_select] = row[col]
-                                if function == "AVG":
-                                    tmp[column_select] = (row[col], 1)
-                                if function == "MIN":
-                                    tmp[column_select] = row[col]
-                                if function == "MAX":
-                                    tmp[column_select] = row[col]
+                                match function:
+                                    case "COUNT":
+                                        tmp_values[current_column] = 1
+                                    case "SUM":
+                                        tmp_values[current_column] = row[col]
+                                    case "AVG":
+                                        tmp_values[current_column] = (row[col], 1)
+                                    case "MIN":
+                                        tmp_values[current_column] = row[col]
+                                    case "MAX":
+                                        tmp_values[current_column] = row[col]
+                                    case _:
+                                        raise Exception("Wrong type of agregate function.")
                             else:
-                                if function == "COUNT":
-                                    tmp[column_select] = 0
-                                if function == "SUM":
-                                    tmp[column_select] = 0
-                                if function == "AVG":
-                                    tmp[column_select] = (0, 0)
-                                if function == "MIN":
-                                    tmp[column_select] = None
-                                if function == "MAX":
-                                    tmp[column_select] = None
-                    new_res[tup] = tmp
-            for tup in new_res.keys():
-                tmp = new_res[tup]
-                for column_select in columns_select:
-                    if column_select not in columns:
-                        (function, col) = column_select
+                                match function:
+                                    case "COUNT":
+                                        tmp_values[current_column] = 0
+                                    case "SUM":
+                                        tmp_values[current_column] = 0
+                                    case "AVG":
+                                        tmp_values[current_column] = (0, 0)
+                                    case "MIN":
+                                        tmp_values[current_column] = None
+                                    case "MAX":
+                                        tmp_values[current_column] = None
+                                    case _:
+                                        raise Exception("Wrong type of agregate function.")
+                    tmp_result[values_group_by] = tmp_values
+            for values_group_by in tmp_result.keys():
+                tmp_values = tmp_result[values_group_by]
+                for current_column in columns_in_select:
+                    if current_column not in columns_in_group_by:
+                        (function, col) = current_column
                         if function == "AVG":
-                            if tmp[column_select][1] == 0:
-                                tmp[column_select] = None
+                            if tmp_values[current_column][1] == 0:
+                                tmp_values[current_column] = None
                             else:
-                                tmp[column_select] = tmp[column_select][0] / tmp[column_select][1]
-                new_res[tup] = tmp
-            new_res_2 = []
-            for row in new_res.keys():
+                                tmp_values[current_column] = tmp_values[current_column][0] / tmp_values[current_column][1]
+                tmp_result[values_group_by] = tmp_values
+            tmp_result_2 = []
+            for row in tmp_result.keys():
                 new_dict = {}
-                for (colnum, column) in enumerate(columns):
+                for (colnum, column) in enumerate(columns_in_group_by):
                     new_dict[column] = row[colnum]
-                new_dict = new_dict | new_res[row]
-                new_res_2.append(new_dict)
-            res = new_res_2
+                new_dict = new_dict | tmp_result[row]
+                tmp_result_2.append(new_dict)
+            current_result = tmp_result_2
 
         # HAVING
-        new_res = []
-        for row in res:
-            Interpreter.current_row = row
+        tmp_result = []
+        for row in current_result:
+            self.current_row = row
             condition = self.visit(node.having)
-            Interpreter.current_row = None
+            self.current_row = None
             if condition is None:
-                new_res.append(row)
+                tmp_result.append(row)
             elif condition:
-                new_res.append(row)
-        res = new_res
+                tmp_result.append(row)
+        current_result = tmp_result
 
         # ORDER BY
         ordering = self.visit(node.ordering)
         if ordering is not None:
             for column in reversed(ordering):
-                res.sort(key=lambda x: x[columns_name[column]])
+                current_result.sort(key=lambda x: x[column])
 
         # RETURN
-        print(columns_select)
-        for row in res:
+        # print(columns_in_select)
+        final_result = []
+        for row in current_result:
             line = []
-            for column in columns_select:
+            for column in columns_in_select:
                 if column == "*":
                     line += list(row.values())
                 else:
                     line.append(row[column])
-            print(line)
-        print()
+            # print(line)
+            final_result.append(line)
+        # print()
+        return final_result
 
     @when(AST.Update)
     def visit(self, node):
@@ -269,9 +277,9 @@ class Interpreter(object):
         column_names = get_columns_names(table, shortname)
         for rownum in range(2, table.max_row + 1):
             row = read_row(table, column_names, rownum)
-            Interpreter.current_row = row
+            self.current_row = row
             condition = self.visit(node.condition)
-            Interpreter.current_row = None
+            self.current_row = None
             if condition:
                 for (column_name, value) in sets:
                     i = column_names[column_name]
@@ -287,9 +295,9 @@ class Interpreter(object):
         dels = 0
         for rownum in range(2, table.max_row + 1):
             row = read_row(table, column_names, rownum - dels)
-            Interpreter.current_row = row
+            self.current_row = row
             condition = self.visit(node.condition)
-            Interpreter.current_row = None
+            self.current_row = None
             if condition:
                 table.delete_rows(rownum - dels, 1)
                 dels += 1
@@ -313,9 +321,9 @@ class Interpreter(object):
 
     @when(AST.Table)
     def visit(self, node):
-        full = self.visit(node.full)
-        short = self.visit(node.short)
-        return (full, short)
+        fullname = self.visit(node.fullname)
+        shortname = self.visit(node.shortname)
+        return (fullname, shortname)
 
     @when(AST.JoinsOn)
     def visit(self, node):
@@ -427,18 +435,18 @@ class Interpreter(object):
         if left_type == "variable":
             left_value = left
         elif left_type == "column":
-            left_value = Interpreter.current_row[left]
+            left_value = self.current_row[left]
         elif left_type == "aggregate":
-            left_value = Interpreter.current_row[left]
+            left_value = self.current_row[left]
         else:
             raise Exception(f"Wrong type: {left_type}")
 
         if right_type == "variable":
             right_value = right
         elif right_type == "column":
-            right_value = Interpreter.current_row[right]
+            right_value = self.current_row[right]
         elif right_type == "aggregate":
-            right_value = Interpreter.current_row[right]
+            right_value = self.current_row[right]
         else:
             raise Exception(f"Wrong type: {right_type}")
 

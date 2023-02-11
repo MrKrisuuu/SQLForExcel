@@ -3,7 +3,7 @@ class Node(object):
         self.lineno = lineno
 
     def accept(self, visitor):
-        visitor.visit(self)
+        return visitor.visit(self)
 
 
 # BASIC STUFF
@@ -78,9 +78,9 @@ class Aggregate(Node):
 
 
 class Table(Node):
-    def __init__(self, full, short, lineno):
-        self.full = full
-        self.short = short
+    def __init__(self, fullname, shortname, lineno):
+        self.fullname = fullname
+        self.shortname = shortname
         super().__init__(lineno)
 
 
